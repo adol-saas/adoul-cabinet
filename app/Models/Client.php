@@ -22,6 +22,8 @@ class Client extends Model
         'email',
         'gender',
         'marital_status',
+        'profession',
+        'nationality',
         'notes',
     ];
 

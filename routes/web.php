@@ -50,8 +50,11 @@ Route::middleware('auth')->group(function () {
 
     // Legal Dossiers & Acts
     Route::resource('dossiers', DossierController::class);
-    Route::post('/dossiers/{dossier}/status', [DossierController::class, 'updateStatus'])->name('dossiers.status');
+    Route::match(['put', 'post'], '/dossiers/{dossier}/status', [DossierController::class, 'updateStatus'])->name('dossiers.status');
+    Route::match(['put', 'post'], '/dossiers/{dossier}/circuit', [DossierController::class, 'updateCircuit'])->name('dossiers.circuit');
+    Route::match(['put', 'post'], '/dossiers/{dossier}/lafif', [DossierController::class, 'updateLafif'])->name('dossiers.lafif');
     Route::get('/dossiers/{dossier}/print', [ExportController::class, 'printDossier'])->name('dossiers.print');
+    Route::get('/dossiers/{dossier}/print-lafif', [ExportController::class, 'printLafif'])->name('dossiers.print-lafif');
     Route::get('/dossiers/{dossier}/fee-statement', [ExportController::class, 'feeStatement'])->name('dossiers.fee-statement');
 
     // Digital Registers & Conservation Memorandum (كناش التضمين ومذكرة الحفظ)

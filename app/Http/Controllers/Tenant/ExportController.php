@@ -213,24 +213,55 @@ class ExportController extends Controller
         $officeSetting = OfficeSetting::first();
         $details = $dossier->details ?? [];
 
-        $declaredValue = (float) ($details['property_price'] ?? $details['declared_value'] ?? $details['loan_amount'] ?? 0.0);
+        $declaredValue = (float) ($details['property_price'] ?? $details['declared_value'] ?? $details['sale_price'] ?? $details['loan_amount'] ?? 0.0);
         $options = [
             'is_indigent' => !empty($details['is_indigent']),
             'is_statutory_free' => !empty($details['is_statutory_free']),
         ];
 
         $tariff = MoroccanLegalTariffService::calculate($dossier->type, $declaredValue, $options);
-
-        $centralHost = parse_url(config('app.url', 'http://adoul.accesspoint.ma'), PHP_URL_HOST)
-            ?? (config('tenancy.central_domains')[0] ?? 'adoul.accesspoint.ma');
-        $scheme = request()->getScheme();
-        $verifyUrl = "{$scheme}://{$centralHost}/verify/{$dossier->reference}";
+        $verifyUrl = url("/verify/{$dossier->reference}");
 
         return Inertia::render('tenant/dossiers/fee-statement', [
             'dossier' => $dossier,
             'officeSetting' => $officeSetting,
             'tariff' => $tariff,
             'declaredValue' => $declaredValue,
+            'verifyUrl' => $verifyUrl,
+        ]);
+    }
+
+    public function printLafif(Dossier $dossier): Response
+    {
+        $dossier->load(['client', 'client2', 'adoul']);
+        $officeSetting = OfficeSetting::first();
+        $details = $dossier->details ?? [];
+        $witnesses = $details['lafif_witnesses'] ?? [];
+
+        // If no witnesses recorded yet, initialize 12 empty slots
+        if (empty($witnesses) || count($witnesses) < 12) {
+            $defaultList = [];
+            for ($i = 1; $i <= 12; $i++) {
+                $defaultList[] = [
+                    'num' => $i,
+                    'name' => "الشاهد رقم {$i}",
+                    'cin' => '',
+                    'age' => '',
+                    'profession' => '',
+                    'address' => '',
+                    'bias_free' => true,
+                    'testimony' => 'يشهد بالملك والحيازة والتصرف دون منازع',
+                ];
+            }
+            $witnesses = array_replace($defaultList, $witnesses);
+        }
+
+        $verifyUrl = url("/verify/{$dossier->reference}");
+
+        return Inertia::render('tenant/dossiers/print-lafif', [
+            'dossier' => $dossier,
+            'officeSetting' => $officeSetting,
+            'witnesses' => $witnesses,
             'verifyUrl' => $verifyUrl,
         ]);
     }

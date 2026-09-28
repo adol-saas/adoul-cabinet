@@ -21,6 +21,8 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->enum('gender', ['male', 'female'])->default('male');
             $table->enum('marital_status', ['single', 'married', 'divorced', 'widowed'])->default('single');
+            $table->string('profession')->nullable();
+            $table->string('nationality')->default('marocaine');
             $table->text('notes')->nullable();
             $table->timestamps();
         });
