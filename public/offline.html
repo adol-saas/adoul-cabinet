@@ -1,0 +1,115 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>وضع عدم الاتصال — منصة Adoul</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #064e3b;
+            color: #f0fdf4;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .card {
+            background: rgba(4, 120, 87, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 1.5rem;
+            padding: 2.5rem 2rem;
+            max-width: 520px;
+            width: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+        .icon-circle {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(245, 158, 11, 0.15);
+            border: 2px solid rgba(245, 158, 11, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 32px;
+        }
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+            color: #fef3c7;
+        }
+        p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #d1fae5;
+            margin-bottom: 1.5rem;
+        }
+        .features-list {
+            background: rgba(2, 44, 34, 0.5);
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1.75rem;
+            text-align: right;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            color: #a7f3d0;
+        }
+        .features-list li {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-retry {
+            background: linear-gradient(135deg, #d97706, #f59e0b);
+            color: #78350f;
+            border: none;
+            padding: 0.85rem 2rem;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            width: 100%;
+        }
+        .btn-retry:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.08);
+        }
+        .footer-note {
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            color: #6ee7b7;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon-circle">📶⚡</div>
+        <h1>أنت في وضع عدم الاتصال (Hors-ligne)</h1>
+        <p>لا يوجد اتصال بالإنترنت في هذا الموقع (قاعة المحكمة أو معاينة ميدانية). المنصة مصممة بتقنية <strong>Offline-First</strong> لضمان استمرارية عملكم دون توقف.</p>
+        
+        <div class="features-list">
+            <li>🛡️ <strong>حفظ محلي آمن:</strong> جميع مسودات العقود والرسوم مخزنة تلقائياً في ذاكرة جهازكم.</li>
+            <li>⚖️ <strong>حساب المواريث:</strong> أداة المواريث والفرائض تعمل بالكامل دون حاجة لإنترنت.</li>
+            <li>🔄 <strong>المزامنة التلقائية:</strong> بمجرد توفر الشبكة، سيتم رفع التعديلات فوراً إلى السحابة.</li>
+        </div>
+
+        <button class="btn-retry" onclick="window.location.reload()">
+            إعادة محاولة الاتصال بالشبكة ↻
+        </button>
+
+        <p class="footer-note">منصة Adoul — التوثيق العدلي المغربي وفق القانون 16.03</p>
+    </div>
+</body>
+</html>

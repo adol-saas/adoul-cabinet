@@ -1,0 +1,21 @@
+﻿{
+  "name": "Adoul — منصة خطة العدالة والتوثيق العدلي",
+  "short_name": "Adoul",
+  "description": "المنصة السحابية الموحدة للسادة العدول بالمملكة المغربية — توثيق رسمي متوافق مع القانون 16.03 ومشروع القانون 051.26",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#064e3b",
+  "theme_color": "#047857",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["business", "productivity", "government"]
+}
