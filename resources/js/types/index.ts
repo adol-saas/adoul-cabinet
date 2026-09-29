@@ -104,7 +104,41 @@ export type DossierType =
     | 'certificate'
     | 'other';
 
-export type DossierStatus = 'draft' | 'pending_qadi' | 'signed' | 'archived' | 'cancelled';
+export interface DossierDocument {
+    id: string;
+    name: string;
+    category: 'cin' | 'birth_cert' | 'property_title' | 'quitus_fiscal' | 'court_order' | 'draft_scan' | 'signed_minute' | 'qadi_homologation' | 'other';
+    path: string;
+    filename: string;
+    size: number;
+    mime_type?: string;
+    extension: string;
+    notes?: string;
+    uploaded_at: string;
+    uploaded_by?: string;
+}
+
+export interface WorkflowStep {
+    key: string;
+    order: number;
+    title_ar: string;
+    title_fr: string;
+    desc_ar: string;
+    icon: string;
+    is_completed: boolean;
+    is_current: boolean;
+    completed_at?: string | null;
+    notes?: string;
+    reference?: string;
+}
+
+export interface WorkflowProgress {
+    steps: WorkflowStep[];
+    completed_count: number;
+    total_steps: number;
+    percentage: number;
+    current_step_key: string;
+}
 
 export interface Dossier {
     id: number;
@@ -123,7 +157,18 @@ export interface Dossier {
     qadi_validation_date?: string;
     qadi_reference?: string;
     details?: Record<string, any>;
-    documents?: string[];
+    documents?: DossierDocument[];
+    workflow_progress?: WorkflowProgress;
+    dgi_status?: {
+        is_registered: boolean;
+        dgi_number?: string | null;
+        deadline_date?: string;
+        days_remaining?: number;
+        is_overdue?: boolean;
+        status_label?: string;
+        badge_variant?: string;
+    };
+    circuit_stage?: string;
     created_at: string;
     client?: Client;
     client2?: Client;

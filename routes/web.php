@@ -53,6 +53,9 @@ Route::middleware('auth')->group(function () {
     Route::match(['put', 'post'], '/dossiers/{dossier}/status', [DossierController::class, 'updateStatus'])->name('dossiers.status');
     Route::match(['put', 'post'], '/dossiers/{dossier}/circuit', [DossierController::class, 'updateCircuit'])->name('dossiers.circuit');
     Route::match(['put', 'post'], '/dossiers/{dossier}/lafif', [DossierController::class, 'updateLafif'])->name('dossiers.lafif');
+    Route::post('/dossiers/{dossier}/documents', [DossierController::class, 'uploadDocument'])->name('dossiers.documents.upload');
+    Route::delete('/dossiers/{dossier}/documents/{documentId}', [DossierController::class, 'deleteDocument'])->name('dossiers.documents.delete');
+    Route::post('/dossiers/{dossier}/workflow-step', [DossierController::class, 'updateWorkflowStep'])->name('dossiers.workflow-step');
     Route::get('/dossiers/{dossier}/print', [ExportController::class, 'printDossier'])->name('dossiers.print');
     Route::get('/dossiers/{dossier}/print-lafif', [ExportController::class, 'printLafif'])->name('dossiers.print-lafif');
     Route::get('/dossiers/{dossier}/fee-statement', [ExportController::class, 'feeStatement'])->name('dossiers.fee-statement');

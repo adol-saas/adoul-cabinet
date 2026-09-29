@@ -12,6 +12,8 @@ use App\Models\OfficeSetting;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -360,5 +362,141 @@ class DossierController extends Controller
 
         return redirect()->route('dossiers.index')
             ->with('success', "تم حذف الملف [{$ref}] نهائياً.");
+    }
+
+    /**
+     * Upload and record a document file in the dossier
+     */
+    public function uploadDocument(Request $request, Dossier $dossier): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'category' => ['required', 'string', 'in:cin,birth_cert,property_title,quitus_fiscal,court_order,draft_scan,signed_minute,qadi_homologation,other'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $file = $request->file('file');
+        $extension = $file->getClientOriginalExtension();
+        $storedName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '_' . time() . '.' . $extension;
+        $path = $file->storeAs("dossiers/{$dossier->id}", $storedName, 'public');
+
+        $docName = $request->input('name') ?: pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+
+        $documents = $dossier->documents ?? [];
+        $newDoc = [
+            'id' => (string) Str::uuid(),
+            'name' => $docName,
+            'category' => $request->input('category', 'other'),
+            'path' => "/storage/{$path}",
+            'filename' => $file->getClientOriginalName(),
+            'size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
+            'extension' => strtolower($extension),
+            'notes' => $request->input('notes'),
+            'uploaded_at' => now()->toIso8601String(),
+            'uploaded_by' => auth()->user()->name ?? 'مستخدم المكتب',
+        ];
+
+        $documents[] = $newDoc;
+        $dossier->update(['documents' => $documents]);
+
+        $dossier->logAction('document_uploaded', auth()->id(), [
+            'note' => "تم إرفاق وتسجيل وثيقة جديدة: [{$docName}] ضمن تصنيف [{$newDoc['category']}]",
+            'document_id' => $newDoc['id'],
+            'file_name' => $file->getClientOriginalName(),
+        ]);
+
+        return back()->with('success', "تم تسجيل وإرفاق وثيقة [{$docName}] بنجاح.");
+    }
+
+    /**
+     * Delete an attached document from the dossier
+     */
+    public function deleteDocument(Request $request, Dossier $dossier, string $documentId): RedirectResponse
+    {
+        $documents = $dossier->documents ?? [];
+        $docName = 'وثيقة';
+
+        $updated = array_values(array_filter($documents, function ($doc) use ($documentId, &$docName) {
+            if (($doc['id'] ?? '') === $documentId) {
+                $docName = $doc['name'] ?? 'وثيقة';
+                if (! empty($doc['path'])) {
+                    $relative = str_replace('/storage/', '', $doc['path']);
+                    Storage::disk('public')->delete($relative);
+                }
+                return false;
+            }
+            return true;
+        }));
+
+        $dossier->update(['documents' => $updated]);
+
+        $dossier->logAction('document_deleted', auth()->id(), [
+            'note' => "تم حذف وثيقة مرفقة: [{$docName}]",
+            'document_id' => $documentId,
+        ]);
+
+        return back()->with('success', "تم حذف وثيقة [{$docName}] بنجاح.");
+    }
+
+    /**
+     * Update procedural workflow step for tracking
+     */
+    public function updateWorkflowStep(Request $request, Dossier $dossier): RedirectResponse
+    {
+        $validated = $request->validate([
+            'step_key' => ['required', 'string', 'in:intake,documents,drafting,signing,tax_dgi,court_qadi,delivery'],
+            'is_completed' => ['required', 'boolean'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'reference' => ['nullable', 'string', 'max:255'],
+            'completed_at' => ['nullable', 'date'],
+        ]);
+
+        $details = $dossier->details ?? [];
+        $workflowSteps = $details['workflow_steps'] ?? [];
+
+        $stepKey = $validated['step_key'];
+        $isCompleted = (bool) $validated['is_completed'];
+
+        $workflowSteps[$stepKey] = [
+            'is_completed' => $isCompleted,
+            'completed_at' => $isCompleted ? ($validated['completed_at'] ?? now()->toIso8601String()) : null,
+            'completed_by' => auth()->user()->name ?? 'مستخدم المكتب',
+            'notes' => $validated['notes'] ?? '',
+            'reference' => $validated['reference'] ?? '',
+        ];
+
+        $details['workflow_steps'] = $workflowSteps;
+
+        $updates = ['details' => $details];
+        if ($stepKey === 'signing' && $isCompleted && ! $dossier->signing_date) {
+            $updates['signing_date'] = now();
+            if ($dossier->status === 'draft') {
+                $updates['status'] = 'signed';
+            }
+        } elseif ($stepKey === 'court_qadi' && $isCompleted) {
+            if (! empty($validated['reference'])) {
+                $updates['qadi_reference'] = $validated['reference'];
+            }
+            $updates['qadi_validation_date'] = now();
+        } elseif ($stepKey === 'tax_dgi' && $isCompleted && ! empty($validated['reference'])) {
+            $details['dgi_number'] = $validated['reference'];
+            $details['dgi_date'] = now()->format('Y-m-d');
+            $updates['details'] = $details;
+        } elseif ($stepKey === 'delivery' && $isCompleted) {
+            $updates['status'] = 'archived';
+        }
+
+        $dossier->update($updates);
+
+        $dossier->logAction('workflow_step_updated', auth()->id(), [
+            'note' => "تم تحديث مرحلة سير الإجراء: [{$stepKey}] " . ($isCompleted ? 'مكتملة ✓' : 'غير مكتملة'),
+            'step_key' => $stepKey,
+            'is_completed' => $isCompleted,
+            'reference' => $validated['reference'] ?? null,
+        ]);
+
+        return back()->with('success', 'تم تحديث مرحلة سير الملف بنجاح.');
     }
 }

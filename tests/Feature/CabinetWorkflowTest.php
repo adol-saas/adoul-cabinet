@@ -8,6 +8,8 @@ use App\Models\Client;
 use App\Models\Dossier;
 use App\Models\OfficeSetting;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CabinetWorkflowTest extends TestCase
@@ -197,5 +199,64 @@ class CabinetWorkflowTest extends TestCase
             'email' => 'adoul@cabinet.ma',
             'name' => 'الأستاذ الدكتور عبد الله العلمي',
         ]);
+    }
+
+    public function test_adoul_can_upload_and_delete_document(): void
+    {
+        Storage::fake('public');
+        $dossier = Dossier::first();
+
+        $file = UploadedFile::fake()->create('cin-mohammed.pdf', 500, 'application/pdf');
+
+        $response = $this->actingAs($this->user)->post("/dossiers/{$dossier->id}/documents", [
+            'file' => $file,
+            'name' => 'بطاقة التعريف الوطنية - الزوج',
+            'category' => 'cin',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $dossier->refresh();
+
+        $this->assertNotEmpty($dossier->documents);
+        $uploadedDoc = collect($dossier->documents)->last();
+        $this->assertNotNull($uploadedDoc);
+        $this->assertEquals('بطاقة التعريف الوطنية - الزوج', $uploadedDoc['name']);
+        $this->assertEquals('cin', $uploadedDoc['category']);
+        $relativePath = str_replace('/storage/', '', $uploadedDoc['path']);
+        Storage::disk('public')->assertExists($relativePath);
+
+        // Now test delete
+        $deleteResponse = $this->actingAs($this->user)->delete("/dossiers/{$dossier->id}/documents/{$uploadedDoc['id']}");
+        $deleteResponse->assertSessionHasNoErrors();
+        $deleteResponse->assertRedirect();
+        $dossier->refresh();
+
+        $remainingDoc = collect($dossier->documents)->firstWhere('id', $uploadedDoc['id']);
+        $this->assertNull($remainingDoc);
+        Storage::disk('public')->assertMissing($relativePath);
+    }
+
+    public function test_adoul_can_update_workflow_step(): void
+    {
+        $dossier = Dossier::first();
+
+        $response = $this->actingAs($this->user)->post("/dossiers/{$dossier->id}/workflow-step", [
+            'step_key' => 'tax_dgi',
+            'is_completed' => true,
+            'reference' => 'DGI-QUITTANCE-889922',
+            'completed_at' => '2026-09-29',
+            'notes' => 'تم استخلاص واجبات التسجيل والتمبر بنجاح بالقباضة',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $dossier->refresh();
+
+        $this->assertNotNull($dossier->workflow_progress);
+        $step = collect($dossier->workflow_progress['steps'])->firstWhere('key', 'tax_dgi');
+        $this->assertNotNull($step);
+        $this->assertTrue($step['is_completed']);
+        $this->assertEquals('DGI-QUITTANCE-889922', $step['reference']);
     }
 }

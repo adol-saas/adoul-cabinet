@@ -46,6 +46,7 @@ class Dossier extends Model
     protected $appends = [
         'dgi_status',
         'circuit_stage',
+        'workflow_progress',
     ];
 
     public function client(): BelongsTo
@@ -148,6 +149,143 @@ class Dossier extends Model
         }
 
         return 'draft';
+    }
+
+    /**
+     * Get Complete Procedural Workflow Progression (7 Moroccan Adoul Official Steps)
+     */
+    public function getWorkflowProgressAttribute(): array
+    {
+        $details = $this->details ?? [];
+        $savedSteps = $details['workflow_steps'] ?? [];
+
+        $stepsConfig = [
+            'intake' => [
+                'key' => 'intake',
+                'order' => 1,
+                'title_ar' => 'تلقي الإشهاد والاستقبال',
+                'title_fr' => 'Réception & Dépôt',
+                'desc_ar' => 'تسجيل الأطراف والتحقق من الهويات والأهلية الشرعية',
+                'icon' => 'UserCheck',
+            ],
+            'documents' => [
+                'key' => 'documents',
+                'order' => 2,
+                'title_ar' => 'فحص وتدقيق الوثائق والمستندات',
+                'title_fr' => 'Instruction & Pièces',
+                'desc_ar' => 'استيفاء الوثائق الثبوتية والشواهد الإدارية اللازمة',
+                'icon' => 'FileCheck',
+            ],
+            'drafting' => [
+                'key' => 'drafting',
+                'order' => 3,
+                'title_ar' => 'تسويد العقد والتقييد بمذكرة الحفظ',
+                'title_fr' => 'Rédaction & Brouillard',
+                'desc_ar' => 'صياغة الرسم الشرعي ومطابقته للنصوص القانونية المنظمة',
+                'icon' => 'FileText',
+            ],
+            'signing' => [
+                'key' => 'signing',
+                'order' => 4,
+                'title_ar' => 'الإشهاد والتوقيع الشرعي',
+                'title_fr' => 'Signature & Clôture',
+                'desc_ar' => 'قراءة المحرر وتوقيع الأطراف والشاهدين والعدلين',
+                'icon' => 'ShieldCheck',
+            ],
+            'tax_dgi' => [
+                'key' => 'tax_dgi',
+                'order' => 5,
+                'title_ar' => 'التسجيل الجبائي والمحافظة',
+                'title_fr' => 'Enregistrement Fiscal & Foncier',
+                'desc_ar' => 'أداء الواجبات الجبائية لدى إدارة الضرائب (SIMPL) والمحافظة العقارية',
+                'icon' => 'Receipt',
+            ],
+            'court_qadi' => [
+                'key' => 'court_qadi',
+                'order' => 6,
+                'title_ar' => 'إيداع المحكمة والخطاب القضائي',
+                'title_fr' => 'Khitab du Qadi & Tadmin',
+                'desc_ar' => 'تأشير قاضي التوثيق المشرف والتضمين بسجلات المحكمة الابتدائية',
+                'icon' => 'Scale',
+            ],
+            'delivery' => [
+                'key' => 'delivery',
+                'order' => 7,
+                'title_ar' => 'تسليم النسخة الرسمية والأرشفة',
+                'title_fr' => 'Délivrance & Archivage',
+                'desc_ar' => 'تسليم النظير المختوم لطالبيه وحفظ الأصل في الأرشيف الإلكتروني',
+                'icon' => 'CheckCircle2',
+            ],
+        ];
+
+        $completedCount = 0;
+        $processedSteps = [];
+        $currentStepKey = null;
+
+        foreach ($stepsConfig as $key => $cfg) {
+            $saved = $savedSteps[$key] ?? [];
+            $isCompleted = false;
+            $completedAt = $saved['completed_at'] ?? null;
+            $notes = $saved['notes'] ?? '';
+            $reference = $saved['reference'] ?? '';
+
+            if (isset($saved['is_completed'])) {
+                $isCompleted = (bool) $saved['is_completed'];
+            } else {
+                if ($this->status === 'archived') {
+                    $isCompleted = true;
+                } elseif ($key === 'intake') {
+                    $isCompleted = true;
+                } elseif ($key === 'documents') {
+                    $isCompleted = ! empty($this->documents) || (bool) $this->signing_date || in_array($this->status, ['signed', 'pending_qadi', 'archived']);
+                } elseif ($key === 'drafting') {
+                    $isCompleted = (bool) $this->signing_date || in_array($this->status, ['signed', 'pending_qadi', 'archived']);
+                } elseif ($key === 'signing') {
+                    $isCompleted = (bool) $this->signing_date || in_array($this->status, ['signed', 'pending_qadi', 'archived']);
+                } elseif ($key === 'tax_dgi') {
+                    $isCompleted = ! empty($details['dgi_number']) || $this->status === 'archived';
+                } elseif ($key === 'court_qadi') {
+                    $isCompleted = ! empty($this->qadi_reference) || ! empty($this->qadi_validation_date) || $this->status === 'archived';
+                } elseif ($key === 'delivery') {
+                    $isCompleted = $this->status === 'archived';
+                }
+            }
+
+            if ($isCompleted) {
+                $completedCount++;
+            } elseif ($currentStepKey === null) {
+                $currentStepKey = $key;
+            }
+
+            $processedSteps[] = array_merge($cfg, [
+                'is_completed' => $isCompleted,
+                'is_current' => false,
+                'completed_at' => $completedAt,
+                'notes' => $notes,
+                'reference' => $reference,
+            ]);
+        }
+
+        if ($currentStepKey === null && $completedCount < count($stepsConfig)) {
+            $currentStepKey = 'delivery';
+        }
+
+        foreach ($processedSteps as &$step) {
+            if ($step['key'] === $currentStepKey) {
+                $step['is_current'] = true;
+            }
+        }
+
+        $totalSteps = count($stepsConfig);
+        $percentage = (int) round(($completedCount / $totalSteps) * 100);
+
+        return [
+            'steps' => $processedSteps,
+            'completed_count' => $completedCount,
+            'total_steps' => $totalSteps,
+            'percentage' => $percentage,
+            'current_step_key' => $currentStepKey ?? 'delivery',
+        ];
     }
 
     public static function generateReference(): string

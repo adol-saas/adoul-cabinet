@@ -5,6 +5,7 @@ import { useLanguage } from '@/context/language-context';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { LanguageSelector } from '@/components/ui/language-selector';
 import { FlashBanner } from '@/components/ui/flash-banner';
+import { motion } from 'framer-motion';
 import {
     ShieldCheck,
     Lock,
@@ -12,13 +13,10 @@ import {
     Scale,
     Sparkles,
     CheckCircle2,
-    UserCheck,
     AlertCircle,
     ArrowLeft,
     Building2,
     BookOpen,
-    KeyRound,
-    Briefcase,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,14 +48,6 @@ export default function TenantLogin({ tenant, office }: TenantLoginProps) {
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
         post('/login');
-    };
-
-    const fillAccount = (email: string) => {
-        setData({
-            email,
-            password: 'password',
-            remember: true,
-        });
     };
 
     return (
@@ -170,11 +160,21 @@ export default function TenantLogin({ tenant, office }: TenantLoginProps) {
                     </div>
 
                     {/* Main Login Box */}
-                    <div className="w-full max-w-md mx-auto my-auto py-6">
+                    <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
+                        className="w-full max-w-md mx-auto my-auto py-6"
+                    >
                         <div className="text-center mb-6">
-                            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-900 text-amber-300 flex items-center justify-center shadow-md border border-amber-400/30">
+                            <motion.div
+                                initial={{ scale: 0.85, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ delay: 0.1, duration: 0.3 }}
+                                className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-900 text-amber-300 flex items-center justify-center shadow-md border border-amber-400/30"
+                            >
                                 <ShieldCheck className="h-7 w-7 text-amber-400" />
-                            </div>
+                            </motion.div>
                             <h2 className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white">
                                 دخول فضاء المكتب
                             </h2>
@@ -258,72 +258,7 @@ export default function TenantLogin({ tenant, office }: TenantLoginProps) {
                             </Button>
                         </form>
 
-                        {/* Authorized Office Accounts Section (Clean & Official) */}
-                        <div className="mt-7 pt-5 border-t border-stone-200 dark:border-stone-800">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
-                                    <KeyRound className="h-4 w-4 text-amber-500" />
-                                    <span>الحسابات المصرح بها للمكتب:</span>
-                                </span>
-                                <span className="text-[11px] text-stone-400">انقر للتعبئة الفورية</span>
-                            </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {/* Account 1: Adoul */}
-                                <div
-                                    onClick={() => fillAccount('adoul@cabinet.ma')}
-                                    className={`group p-3.5 rounded-2xl border transition-all cursor-pointer text-start shadow-xs relative overflow-hidden ${
-                                        data.email === 'adoul@cabinet.ma'
-                                            ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
-                                            : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20'
-                                    }`}
-                                >
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <div className="font-extrabold text-xs text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5">
-                                            <Briefcase className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                                            <span>الأستاذ(ة) العدل</span>
-                                        </div>
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
-                                            رئيس المكتب
-                                        </span>
-                                    </div>
-                                    <div className="text-stone-700 dark:text-stone-300 font-mono text-xs font-semibold select-all">
-                                        adoul@cabinet.ma
-                                    </div>
-                                    <div className="text-stone-400 text-[10px] mt-1 flex items-center justify-between">
-                                        <span>كلمة المرور: <span className="font-mono text-stone-600 dark:text-stone-300 font-bold">password</span></span>
-                                        <span className="text-emerald-600 font-bold group-hover:underline">تعبئة</span>
-                                    </div>
-                                </div>
-
-                                {/* Account 2: Secrétaire */}
-                                <div
-                                    onClick={() => fillAccount('secretaire@cabinet.ma')}
-                                    className={`group p-3.5 rounded-2xl border transition-all cursor-pointer text-start shadow-xs relative overflow-hidden ${
-                                        data.email === 'secretaire@cabinet.ma'
-                                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 ring-2 ring-blue-500/20'
-                                            : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 hover:border-blue-500 hover:bg-blue-50/40 dark:hover:bg-blue-950/20'
-                                    }`}
-                                >
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <div className="font-extrabold text-xs text-blue-800 dark:text-blue-400 flex items-center gap-1.5">
-                                            <UserCheck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                                            <span>كتابة المكتب</span>
-                                        </div>
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300">
-                                            السكرتارية
-                                        </span>
-                                    </div>
-                                    <div className="text-stone-700 dark:text-stone-300 font-mono text-xs font-semibold select-all">
-                                        secretaire@cabinet.ma
-                                    </div>
-                                    <div className="text-stone-400 text-[10px] mt-1 flex items-center justify-between">
-                                        <span>كلمة المرور: <span className="font-mono text-stone-600 dark:text-stone-300 font-bold">password</span></span>
-                                        <span className="text-blue-600 font-bold group-hover:underline">تعبئة</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
                         {/* Back to Public Portal */}
                         <div className="mt-6 pt-4 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between text-xs text-stone-500 dark:text-stone-400">
@@ -342,7 +277,7 @@ export default function TenantLogin({ tenant, office }: TenantLoginProps) {
                                 إعدادات المكتب
                             </Link>
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Footer */}
                     <div className="text-center text-[11px] text-stone-400 py-2 border-t border-stone-100 dark:border-stone-800/80">
