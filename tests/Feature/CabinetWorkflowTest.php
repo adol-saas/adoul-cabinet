@@ -266,7 +266,9 @@ class CabinetWorkflowTest extends TestCase
 
     public function test_adoul_can_configure_custom_workflow_steps(): void
     {
-        $dossier = Dossier::first();
+        $dossier = Dossier::where('status', '!=', 'archived')->first() ?? Dossier::first();
+        $dossier->update(['status' => 'in_progress', 'details' => []]);
+        $dossier->refresh();
 
         // 1. Reset to inheritance template
         $response = $this->actingAs($this->user)->post("/dossiers/{$dossier->id}/workflow-configure", [
