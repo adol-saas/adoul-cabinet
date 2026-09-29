@@ -5,7 +5,12 @@ export interface User {
     name: string;
     email: string;
     phone?: string;
+    cin?: string;
     job_title?: string;
+    license_number?: string;
+    bio?: string;
+    avatar_path?: string;
+    signature_path?: string;
     is_super_admin: boolean;
     roles: string[];
     permissions: string[];

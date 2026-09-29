@@ -303,5 +303,64 @@ class CabinetWorkflowTest extends TestCase
         $firstStep = collect($dossier->workflow_progress['steps'])->firstWhere('key', $currentKey);
         $this->assertTrue($firstStep['is_completed']);
     }
+
+    public function test_user_can_access_profile_page(): void
+    {
+        $response = $this->actingAs($this->user)->get('/profile');
+        $response->assertStatus(200);
+    }
+
+    public function test_user_can_update_profile_info(): void
+    {
+        $response = $this->actingAs($this->user)->post('/profile', [
+            'name' => 'الأستاذ الدكتور محمد الإدريسي المحدث',
+            'email' => $this->user->email,
+            'phone' => '+212 661 999 888',
+            'cin' => 'A123456',
+            'job_title' => 'عدل موثق محلف ورئيس الهيئة الجهوية',
+            'license_number' => 'قرار وزاري 2026/999',
+            'bio' => 'متخصص في قضايا المواريث والتوثيق العقاري',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $this->user->refresh();
+        $this->assertEquals('الأستاذ الدكتور محمد الإدريسي المحدث', $this->user->name);
+        $this->assertEquals('+212 661 999 888', $this->user->phone);
+        $this->assertEquals('A123456', $this->user->cin);
+        $this->assertEquals('قرار وزاري 2026/999', $this->user->license_number);
+    }
+
+    public function test_user_can_update_password(): void
+    {
+        $response = $this->actingAs($this->user)->put('/profile/password', [
+            'current_password' => 'password',
+            'password' => 'newSecretPassword2026',
+            'password_confirmation' => 'newSecretPassword2026',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $this->user->refresh();
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('newSecretPassword2026', $this->user->password));
+
+        // Restore password
+        $this->user->password = \Illuminate\Support\Facades\Hash::make('password');
+        $this->user->save();
+    }
+
+    public function test_user_cannot_update_password_with_invalid_current_password(): void
+    {
+        $response = $this->actingAs($this->user)->put('/profile/password', [
+            'current_password' => 'wrong-current-password',
+            'password' => 'newSecretPassword2026',
+            'password_confirmation' => 'newSecretPassword2026',
+        ]);
+
+        $response->assertSessionHasErrors('current_password');
+    }
 }
+
 

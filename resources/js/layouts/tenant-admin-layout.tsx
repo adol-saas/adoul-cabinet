@@ -30,6 +30,7 @@ import {
     Bell,
     BookOpen,
     Calculator,
+    User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -150,6 +151,12 @@ export const TenantAdminLayout: React.FC<{ children: React.ReactNode; title?: st
             href: '/reports',
             icon: BarChart3,
             requiredFeature: 'module_reports_export',
+        },
+        {
+            name: 'الملف الشخصي',
+            href: '/profile',
+            icon: User,
+            requiredFeature: null,
         },
         {
             name: t('settings'),
@@ -314,19 +321,31 @@ export const TenantAdminLayout: React.FC<{ children: React.ReactNode; title?: st
 
                     {/* User profile & session */}
                     <div className="p-4 border-t border-emerald-700/60 space-y-2">
-                        <div className="flex items-center gap-3 p-2 rounded-lg bg-emerald-950/30">
-                            <div className="h-8 w-8 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                                {auth.user?.name?.charAt(0) || 'U'}
-                            </div>
+                        <Link
+                            href="/profile"
+                            className="flex items-center gap-3 p-2.5 rounded-xl bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-600/30 transition-all cursor-pointer group"
+                            title="إدارة الملف الشخصي والحساب"
+                        >
+                            {auth.user?.avatar_path ? (
+                                <img
+                                    src={auth.user.avatar_path}
+                                    alt={auth.user.name}
+                                    className="h-9 w-9 rounded-full object-cover border-2 border-amber-400 shrink-0"
+                                />
+                            ) : (
+                                <div className="h-9 w-9 rounded-full bg-emerald-700 group-hover:bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 transition-colors">
+                                    {auth.user?.name?.charAt(0) || 'U'}
+                                </div>
+                            )}
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-white truncate">{auth.user?.name}</p>
+                                <p className="text-xs font-semibold text-white truncate group-hover:text-amber-300 transition-colors">{auth.user?.name}</p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                     <span className={`text-[10px] px-1.5 py-0.2 rounded-sm border font-medium ${roleColors[currentRole] || 'bg-stone-800 text-stone-300'}`}>
                                         {currentRole.toUpperCase()}
                                     </span>
                                 </div>
                             </div>
-                        </div>
+                        </Link>
 
                         <div className="flex items-center justify-between pt-1">
                             <a
@@ -403,9 +422,17 @@ export const TenantAdminLayout: React.FC<{ children: React.ReactNode; title?: st
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
-                                    <div className="h-7 w-7 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs">
-                                        {auth.user?.name?.charAt(0) || 'U'}
-                                    </div>
+                                    {auth.user?.avatar_path ? (
+                                        <img
+                                            src={auth.user.avatar_path}
+                                            alt={auth.user.name}
+                                            className="h-7 w-7 rounded-full object-cover border border-amber-400 shrink-0"
+                                        />
+                                    ) : (
+                                        <div className="h-7 w-7 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs">
+                                            {auth.user?.name?.charAt(0) || 'U'}
+                                        </div>
+                                    )}
                                     <span className="text-xs font-semibold text-stone-800 dark:text-stone-200">{auth.user?.name}</span>
                                     <ChevronDown className="h-3.5 w-3.5 opacity-60" />
                                 </Button>
@@ -421,12 +448,22 @@ export const TenantAdminLayout: React.FC<{ children: React.ReactNode; title?: st
                                     </div>
                                 </div>
                                 <DropdownMenuItem asChild>
-                                    <Link href="/settings" className="w-full cursor-pointer">{t('settings')}</Link>
+                                    <Link href="/profile" className="w-full cursor-pointer flex items-center gap-2">
+                                        <User className="h-4 w-4" />
+                                        <span>الملف الشخصي والحساب</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/settings" className="w-full cursor-pointer flex items-center gap-2">
+                                        <Settings className="h-4 w-4" />
+                                        <span>{t('settings')}</span>
+                                    </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem asChild>
-                                    <Link href="/logout" method="post" as="button" className="w-full text-red-600 dark:text-red-400 cursor-pointer">
-                                        {t('logout')}
+                                    <Link href="/logout" method="post" as="button" className="w-full text-red-600 dark:text-red-400 cursor-pointer flex items-center gap-2">
+                                        <LogOut className="h-4 w-4" />
+                                        <span>{t('logout')}</span>
                                     </Link>
                                 </DropdownMenuItem>
                             </DropdownMenuContent>

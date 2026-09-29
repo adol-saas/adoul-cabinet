@@ -11,6 +11,7 @@ use App\Http\Controllers\Tenant\DossierController;
 use App\Http\Controllers\Tenant\ExportController;
 use App\Http\Controllers\Tenant\InheritanceCalculatorController;
 use App\Http\Controllers\Tenant\OfficeSettingController;
+use App\Http\Controllers\Tenant\ProfileController;
 use App\Http\Controllers\Tenant\PublicOfficeController;
 use App\Http\Controllers\Tenant\RegisterController;
 use App\Http\Controllers\Tenant\ReportController;
@@ -99,6 +100,13 @@ Route::middleware('auth')->group(function () {
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 
+    // User Profile Management (Adoul & Cabinet Staff)
+    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+    Route::match(['put', 'post'], '/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar'])->name('profile.avatar.delete');
+    Route::delete('/profile/signature', [ProfileController::class, 'deleteSignature'])->name('profile.signature.delete');
+
     // Office Settings & Branding
     Route::get('/settings', [OfficeSettingController::class, 'index'])->name('settings.index');
     Route::post('/settings', [OfficeSettingController::class, 'update'])->name('settings.update');
@@ -113,6 +121,7 @@ Route::middleware('auth')->group(function () {
 // Named Aliases for Smooth Compatibility
 Route::as('tenant.')->middleware('auth')->group(function () {
     Route::get('/cabinet/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/cabinet/profile', [ProfileController::class, 'index'])->name('profile.index');
     Route::get('/cabinet/dossiers', [DossierController::class, 'index'])->name('dossiers.index');
     Route::get('/cabinet/dossiers/{dossier}', [DossierController::class, 'show'])->name('dossiers.show');
     Route::get('/cabinet/dossiers/{dossier}/print', [ExportController::class, 'printDossier'])->name('dossiers.print');
