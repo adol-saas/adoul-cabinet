@@ -127,6 +127,8 @@ export interface WorkflowStep {
     icon: string;
     is_completed: boolean;
     is_current: boolean;
+    is_skipped?: boolean;
+    is_enabled?: boolean;
     completed_at?: string | null;
     notes?: string;
     reference?: string;
@@ -137,7 +139,8 @@ export interface WorkflowProgress {
     completed_count: number;
     total_steps: number;
     percentage: number;
-    current_step_key: string;
+    current_step_key?: string | null;
+    is_customized?: boolean;
 }
 
 export interface Dossier {

@@ -47,6 +47,15 @@ import {
     Paperclip,
     Check,
     ChevronRight,
+    Sliders,
+    Settings2,
+    ArrowUp,
+    ArrowDown,
+    Plus,
+    RotateCcw,
+    Ban,
+    Zap,
+    CheckCircle,
 } from 'lucide-react';
 import { Dossier, OfficeSetting, DossierDocument } from '@/types';
 
@@ -62,6 +71,7 @@ interface DossierShowProps {
     template: any;
     adoulUsers: UserItem[];
     verifyUrl: string;
+    workflowTemplates?: Record<string, any[]>;
 }
 
 // Category labels and badges for uploaded documents
@@ -155,14 +165,30 @@ export default function TenantDossierShow({
     const [circuitModalOpen, setCircuitModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [stepModalOpen, setStepModalOpen] = useState(false);
+    const [configModalOpen, setConfigModalOpen] = useState(false);
     const [selectedStep, setSelectedStep] = useState<any>(null);
     const [uploadModalOpen, setUploadModalOpen] = useState(false);
     const [lafifModalOpen, setLafifModalOpen] = useState(false);
+
+    // Workflow Configuration States
+    const [editableSteps, setEditableSteps] = useState<any[]>(workflow.steps || []);
+    const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>(
+        ['marriage', 'divorce', 'raj3a', 'thobout_zawjia', 'hadana_nafaka'].includes(dossier.type)
+            ? 'family'
+            : (['property_sale', 'donation', 'tarakah_qisma'].includes(dossier.type)
+                ? 'property'
+                : (['mulkiya_lafif', 'lafif_property'].includes(dossier.type)
+                    ? 'lafif'
+                    : (['inheritance', 'will'].includes(dossier.type) ? 'inheritance' : 'general')))
+    );
+    const [newStepTitle, setNewStepTitle] = useState('');
+    const [newStepDesc, setNewStepDesc] = useState('');
 
     // Form for workflow step update
     const stepForm = useForm({
         step_key: '',
         is_completed: true,
+        is_skipped: false,
         notes: '',
         reference: '',
         completed_at: new Date().toISOString().split('T')[0],
@@ -215,12 +241,117 @@ export default function TenantDossierShow({
         setSelectedStep(step);
         stepForm.setData({
             step_key: step.key,
-            is_completed: step.is_completed !== undefined ? !step.is_completed : true,
+            is_completed: Boolean(step.is_completed),
+            is_skipped: Boolean(step.is_skipped),
             notes: step.notes || '',
             reference: step.reference || '',
             completed_at: step.completed_at ? step.completed_at.split('T')[0] : new Date().toISOString().split('T')[0],
         });
         setStepModalOpen(true);
+    };
+
+    const openConfigModal = () => {
+        setEditableSteps([...(workflow.steps || [])]);
+        setConfigModalOpen(true);
+    };
+
+    const handleQuickAdvance = () => {
+        router.post(`/dossiers/${dossier.id}/workflow-advance`, {}, {
+            preserveScroll: true,
+        });
+    };
+
+    const handleToggleStep = (step: any) => {
+        router.post(`/dossiers/${dossier.id}/workflow-step`, {
+            step_key: step.key,
+            is_completed: !step.is_completed,
+            is_skipped: false,
+            completed_at: !step.is_completed ? new Date().toISOString().split('T')[0] : null,
+            notes: step.notes || '',
+            reference: step.reference || '',
+        }, {
+            preserveScroll: true,
+        });
+    };
+
+    const handleSkipStep = (step: any) => {
+        router.post(`/dossiers/${dossier.id}/workflow-step`, {
+            step_key: step.key,
+            is_completed: false,
+            is_skipped: !step.is_skipped,
+            notes: 'تم استثناء هذه المرحلة لعدم انطباقها على هذا الملف العدلي',
+        }, {
+            preserveScroll: true,
+        });
+    };
+
+    const moveStepUp = (index: number) => {
+        if (index === 0) return;
+        const copy = [...editableSteps];
+        const temp = copy[index - 1];
+        copy[index - 1] = copy[index];
+        copy[index] = temp;
+        copy.forEach((s, i) => s.order = i + 1);
+        setEditableSteps(copy);
+    };
+
+    const moveStepDown = (index: number) => {
+        if (index === editableSteps.length - 1) return;
+        const copy = [...editableSteps];
+        const temp = copy[index + 1];
+        copy[index + 1] = copy[index];
+        copy[index] = temp;
+        copy.forEach((s, i) => s.order = i + 1);
+        setEditableSteps(copy);
+    };
+
+    const toggleStepEnabled = (index: number) => {
+        const copy = [...editableSteps];
+        copy[index].is_enabled = copy[index].is_enabled !== false ? false : true;
+        setEditableSteps(copy);
+    };
+
+    const removeStepFromConfig = (index: number) => {
+        const copy = editableSteps.filter((_, i) => i !== index);
+        copy.forEach((s, i) => s.order = i + 1);
+        setEditableSteps(copy);
+    };
+
+    const addCustomStepToConfig = () => {
+        if (!newStepTitle.trim()) return;
+        const newStep = {
+            key: `custom_${Date.now()}`,
+            order: editableSteps.length + 1,
+            title_ar: newStepTitle.trim(),
+            title_fr: 'Étape personnalisée',
+            desc_ar: newStepDesc.trim() || 'إجراء عدلي مخصص من قبل عدل المكتب',
+            icon: 'Clock',
+            is_enabled: true,
+            is_completed: false,
+        };
+        setEditableSteps([...editableSteps, newStep]);
+        setNewStepTitle('');
+        setNewStepDesc('');
+    };
+
+    const saveWorkflowConfiguration = () => {
+        router.post(`/dossiers/${dossier.id}/configure-workflow`, {
+            action: 'save_steps',
+            steps: editableSteps,
+        }, {
+            onSuccess: () => setConfigModalOpen(false),
+        });
+    };
+
+    const applyOfficialTemplate = (templateKey: string) => {
+        if (confirm('هل أنت متأكد من إعادة ضبط مراحل هذا الملف وفق المسار النموذجي المختار؟')) {
+            router.post(`/dossiers/${dossier.id}/configure-workflow`, {
+                action: 'reset_template',
+                template_type: templateKey,
+            }, {
+                onSuccess: () => setConfigModalOpen(false),
+            });
+        }
     };
 
     const submitStep = (e: React.FormEvent) => {
@@ -460,19 +591,47 @@ export default function TenantDossierShow({
                 >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                         <div className="space-y-1">
-                            <div className="inline-flex items-center gap-2 text-xs font-bold text-amber-300">
+                            <div className="flex items-center flex-wrap gap-2 text-xs font-bold text-amber-300">
                                 <Sparkles className="h-3.5 w-3.5 text-amber-400" />
                                 <span>مسار وتتبع مراحل إنجاز المعاملة العدلية (Workflow Tracker)</span>
+                                {workflow.is_customized && (
+                                    <Badge variant="outline" className="text-[10px] bg-amber-400/20 text-amber-200 border-amber-300/40">
+                                        مسار مخصص للملف
+                                    </Badge>
+                                )}
                             </div>
-                            <h3 className="text-lg font-black text-white">
-                                تقدم الملف: {workflow.completed_count} من أصل {workflow.total_steps} مراحل مكتملة
+                            <h3 className="text-lg font-black text-white flex items-center gap-3">
+                                <span>تقدم الملف: {workflow.completed_count} من أصل {workflow.total_steps} مراحل مكتملة</span>
                             </h3>
                             <p className="text-xs text-emerald-200/80">
-                                انقر على أي مرحلة لتحديث حالتها أو إضافة تاريخها والوصل الخاص بها
+                                انقر على أي مرحلة للتأشير عليها أو تعديل مراجعها، أو استخدم زر ضبط المراحل لتعديل وترتيب مسار العمل
                             </p>
+
+                            <div className="flex items-center flex-wrap gap-2 pt-1">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={openConfigModal}
+                                    className="text-xs font-bold rounded-xl gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                                >
+                                    <Sliders className="h-3.5 w-3.5 text-amber-300" />
+                                    <span>⚙️ ضبط وتخصيص مراحل العمل</span>
+                                </Button>
+
+                                {workflow.current_step_key && (
+                                    <Button
+                                        size="sm"
+                                        onClick={handleQuickAdvance}
+                                        className="text-xs font-bold rounded-xl gap-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 shadow-sm"
+                                    >
+                                        <Zap className="h-3.5 w-3.5" />
+                                        <span>إنجاز المرحلة الحالية ⚡</span>
+                                    </Button>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 self-end md:self-center">
                             <div className="text-end">
                                 <span className="text-2xl font-black font-mono text-amber-300">
                                     {workflow.percentage}%
@@ -500,6 +659,7 @@ export default function TenantDossierShow({
                         {workflow.steps.map((st: any, idx: number) => {
                             const isCurrent = st.is_current;
                             const isDone = st.is_completed;
+                            const isSkipped = st.is_skipped;
 
                             return (
                                 <motion.div
@@ -508,17 +668,21 @@ export default function TenantDossierShow({
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => openStepModal(st)}
                                     className={`p-3 rounded-xl border text-start cursor-pointer transition-all relative overflow-hidden flex flex-col justify-between min-h-[90px] ${
-                                        isDone
-                                            ? 'bg-emerald-800/50 border-emerald-400/60 text-white shadow-xs'
-                                            : isCurrent
-                                                ? 'bg-amber-500/20 border-amber-400 text-amber-200 shadow-md ring-2 ring-amber-400/30'
-                                                : 'bg-white/5 border-white/10 text-stone-300 hover:border-white/30'
+                                        isSkipped
+                                            ? 'bg-stone-900/60 border-stone-700/60 text-stone-400 opacity-60'
+                                            : isDone
+                                                ? 'bg-emerald-800/50 border-emerald-400/60 text-white shadow-xs'
+                                                : isCurrent
+                                                    ? 'bg-amber-500/20 border-amber-400 text-amber-200 shadow-md ring-2 ring-amber-400/30'
+                                                    : 'bg-white/5 border-white/10 text-stone-300 hover:border-white/30'
                                     }`}
                                 >
                                     <div>
                                         <div className="flex items-center justify-between text-[11px] mb-1.5">
                                             <span className="font-mono text-[10px] opacity-75">المرحلة {idx + 1}</span>
-                                            {isDone ? (
+                                            {isSkipped ? (
+                                                <span className="w-4 h-4 rounded-full bg-stone-700 text-stone-300 flex items-center justify-center text-[10px]">✕</span>
+                                            ) : isDone ? (
                                                 <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">✓</span>
                                             ) : isCurrent ? (
                                                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
@@ -526,14 +690,18 @@ export default function TenantDossierShow({
                                                 <span className="w-4 h-4 rounded-full bg-white/10 text-[10px] flex items-center justify-center">{idx + 1}</span>
                                             )}
                                         </div>
-                                        <div className="font-bold text-xs line-clamp-2 leading-snug">
+                                        <div className={`font-bold text-xs line-clamp-2 leading-snug ${isSkipped ? 'line-through text-stone-400' : ''}`}>
                                             {st.title_ar}
                                         </div>
                                     </div>
 
                                     <div className="text-[10px] pt-1.5 border-t border-white/10 flex items-center justify-between">
-                                        <span className={isDone ? 'text-emerald-300 font-bold' : isCurrent ? 'text-amber-300 font-bold' : 'text-stone-400'}>
-                                            {isDone ? 'مكتملة' : isCurrent ? 'المرحلة الحالية' : 'في الانتظار'}
+                                        <span className={
+                                            isSkipped 
+                                                ? 'text-stone-400 font-semibold' 
+                                                : (isDone ? 'text-emerald-300 font-bold' : (isCurrent ? 'text-amber-300 font-bold' : 'text-stone-400'))
+                                        }>
+                                            {isSkipped ? 'معفاة / غير مطلوبة' : (isDone ? 'مكتملة' : (isCurrent ? 'المرحلة الحالية' : 'في الانتظار'))}
                                         </span>
                                         <ChevronRight className="h-3 w-3 opacity-60 rtl:rotate-180" />
                                     </div>
@@ -618,19 +786,30 @@ export default function TenantDossierShow({
                         {/* 8 Cols: Detailed Step List with Actions */}
                         <div className="lg:col-span-8 space-y-4">
                             <Card>
-                                <CardHeader className="pb-3 border-b border-stone-100 dark:border-stone-800 flex flex-row items-center justify-between">
+                                <CardHeader className="pb-3 border-b border-stone-100 dark:border-stone-800 flex flex-row items-center justify-between flex-wrap gap-2">
                                     <div>
                                         <CardTitle className="text-sm font-bold flex items-center gap-2 text-stone-900 dark:text-stone-100">
                                             <Scale className="h-4 w-4 text-emerald-700" />
-                                            <span>تفاصيل المراحل الإجرائية السبع للقانون 16.03</span>
+                                            <span>تفاصيل ومسار مراحل المعاملة العدلية</span>
                                         </CardTitle>
                                         <p className="text-xs text-stone-400 mt-0.5">
-                                            تتبع دقيق لكل محطة في إنجاز العقد وتوثيقه لدى القضاء وإدارة الضرائب
+                                            تتبع دقيق وتخصيص لكل محطة في إنجاز العقد وتوثيقه لدى القضاء وإدارة الضرائب
                                         </p>
                                     </div>
-                                    <Badge variant="gold" className="text-xs">
-                                        المرحلة النشطة: {workflow.current_step_key}
-                                    </Badge>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={openConfigModal}
+                                            className="text-xs font-bold rounded-xl gap-1.5 border-emerald-600/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50"
+                                        >
+                                            <Sliders className="h-3.5 w-3.5" />
+                                            <span>تخصيص وترتيب المراحل</span>
+                                        </Button>
+                                        <Badge variant="gold" className="text-xs">
+                                            المرحلة النشطة: {workflow.current_step_key || 'مكتمل'}
+                                        </Badge>
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="p-4 space-y-3">
                                     {workflow.steps.map((st: any, idx: number) => {
@@ -638,35 +817,42 @@ export default function TenantDossierShow({
                                             <div
                                                 key={st.key}
                                                 className={`p-4 rounded-2xl border transition-all ${
-                                                    st.is_completed
-                                                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
-                                                        : st.is_current
-                                                            ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-400 shadow-sm'
-                                                            : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800'
+                                                    st.is_skipped
+                                                        ? 'bg-stone-100/50 dark:bg-stone-900/50 border-stone-300 dark:border-stone-800 opacity-60'
+                                                        : st.is_completed
+                                                            ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                                                            : st.is_current
+                                                                ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-400 shadow-sm'
+                                                                : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800'
                                                 }`}
                                             >
                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                     <div className="flex items-start gap-3">
                                                         <div className={`p-2.5 rounded-xl shrink-0 ${
-                                                            st.is_completed
-                                                                ? 'bg-emerald-600 text-white'
-                                                                : st.is_current
-                                                                    ? 'bg-amber-500 text-white'
-                                                                    : 'bg-stone-100 dark:bg-stone-800 text-stone-400'
+                                                            st.is_skipped
+                                                                ? 'bg-stone-300 dark:bg-stone-800 text-stone-500'
+                                                                : st.is_completed
+                                                                    ? 'bg-emerald-600 text-white'
+                                                                    : st.is_current
+                                                                        ? 'bg-amber-500 text-white'
+                                                                        : 'bg-stone-100 dark:bg-stone-800 text-stone-400'
                                                         }`}>
-                                                            {st.is_completed ? <Check className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                                                            {st.is_skipped ? <Ban className="h-5 w-5" /> : (st.is_completed ? <Check className="h-5 w-5" /> : <Clock className="h-5 w-5" />)}
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-mono text-xs font-bold text-stone-400">
                                                                     0{idx + 1}.
                                                                 </span>
-                                                                <h4 className="font-extrabold text-sm text-stone-900 dark:text-stone-100">
+                                                                <h4 className={`font-extrabold text-sm text-stone-900 dark:text-stone-100 ${st.is_skipped ? 'line-through text-stone-400' : ''}`}>
                                                                     {st.title_ar}
                                                                 </h4>
                                                                 <span className="text-[11px] text-stone-400">
                                                                     ({st.title_fr})
                                                                 </span>
+                                                                {st.is_skipped && (
+                                                                    <Badge variant="outline" className="text-[10px] text-stone-500">معفاة / غير مطلوبة</Badge>
+                                                                )}
                                                             </div>
                                                             <p className="text-xs text-stone-500 mt-0.5">
                                                                 {st.desc_ar}
@@ -694,14 +880,48 @@ export default function TenantDossierShow({
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-2 self-end sm:self-center">
+                                                    <div className="flex items-center flex-wrap gap-1.5 self-end sm:self-center">
+                                                        {st.is_completed ? (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => handleToggleStep(st)}
+                                                                className="text-xs rounded-xl text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"
+                                                                title="إعادة فتح هذه المرحلة"
+                                                            >
+                                                                <RotateCcw className="h-3 w-3 ms-1" />
+                                                                <span>إعادة فتح</span>
+                                                            </Button>
+                                                        ) : (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="emerald"
+                                                                onClick={() => handleToggleStep(st)}
+                                                                className="text-xs font-bold rounded-xl gap-1 shadow-xs"
+                                                                title="تأشير المرحلة كمكتملة مباشرة"
+                                                            >
+                                                                <Check className="h-3.5 w-3.5" />
+                                                                <span>✓ إنهاء سريع</span>
+                                                            </Button>
+                                                        )}
+
                                                         <Button
                                                             size="sm"
-                                                            variant={st.is_completed ? 'outline' : 'emerald'}
+                                                            variant="ghost"
                                                             onClick={() => openStepModal(st)}
-                                                            className="text-xs font-bold rounded-xl"
+                                                            className="text-xs rounded-xl"
                                                         >
-                                                            {st.is_completed ? 'تعديل / إلغاء' : 'إكمال هذه المرحلة'}
+                                                            <span>التفاصيل والوصل</span>
+                                                        </Button>
+
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => handleSkipStep(st)}
+                                                            className={`text-xs rounded-xl ${st.is_skipped ? 'text-amber-600 font-bold' : 'text-stone-400 hover:text-stone-600'}`}
+                                                            title="استثناء هذه المرحلة من الملف"
+                                                        >
+                                                            {st.is_skipped ? 'إلغاء الإعفاء' : 'إعفاء'}
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -1207,19 +1427,71 @@ export default function TenantDossierShow({
                     </DialogHeader>
 
                     <form onSubmit={submitStep} className="space-y-4 text-xs font-tajawal">
-                        <div className="p-3 rounded-xl bg-stone-50 dark:bg-stone-900 border space-y-2">
-                            <label className="flex items-center gap-2.5 font-bold cursor-pointer">
+                        <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-900 border space-y-3">
+                            <Label className="font-bold text-xs">وضعية إنجاز المرحلة</Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer transition-all ${
+                                    stepForm.data.is_completed && !stepForm.data.is_skipped
+                                        ? 'bg-emerald-100/70 border-emerald-500 text-emerald-950 font-bold dark:bg-emerald-950 dark:text-emerald-200'
+                                        : 'bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-800'
+                                }`}>
+                                    <input
+                                        type="radio"
+                                        name="step_state"
+                                        checked={stepForm.data.is_completed && !stepForm.data.is_skipped}
+                                        onChange={() => {
+                                            stepForm.setData({
+                                                ...stepForm.data,
+                                                is_completed: true,
+                                                is_skipped: false,
+                                            });
+                                        }}
+                                        className="text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <span>مرحلة مكتملة بنجاح ✓</span>
+                                </label>
+
+                                <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer transition-all ${
+                                    !stepForm.data.is_completed && !stepForm.data.is_skipped
+                                        ? 'bg-amber-100/70 border-amber-500 text-amber-950 font-bold dark:bg-amber-950 dark:text-amber-200'
+                                        : 'bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-800'
+                                }`}>
+                                    <input
+                                        type="radio"
+                                        name="step_state"
+                                        checked={!stepForm.data.is_completed && !stepForm.data.is_skipped}
+                                        onChange={() => {
+                                            stepForm.setData({
+                                                ...stepForm.data,
+                                                is_completed: false,
+                                                is_skipped: false,
+                                            });
+                                        }}
+                                        className="text-amber-600 focus:ring-amber-500"
+                                    />
+                                    <span>قيد المعالجة (غير مكتملة)</span>
+                                </label>
+                            </div>
+
+                            <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer transition-all ${
+                                stepForm.data.is_skipped
+                                    ? 'bg-stone-200 border-stone-500 text-stone-900 font-bold dark:bg-stone-800 dark:text-stone-200'
+                                    : 'bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-800'
+                            }`}>
                                 <input
                                     type="checkbox"
-                                    checked={stepForm.data.is_completed}
-                                    onChange={(e) => stepForm.setData('is_completed', e.target.checked)}
-                                    className="rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                                    checked={stepForm.data.is_skipped}
+                                    onChange={(e) => {
+                                        stepForm.setData({
+                                            ...stepForm.data,
+                                            is_skipped: e.target.checked,
+                                            is_completed: false,
+                                        });
+                                    }}
+                                    className="text-stone-600 focus:ring-stone-500 rounded"
                                 />
-                                <span>تم إنجاز هذه المرحلة بنجاح</span>
+                                <span>معفاة / غير مطلوبة لهذا الملف (استثناء من حساب نسبة التقدم)</span>
                             </label>
-                            <p className="text-[11px] text-stone-400">
-                                عند تأشير المرحلة كمكتملة، سيتم تحديث شريط تقدم الملف وسجل التتبع تلقائياً.
-                            </p>
                         </div>
 
                         <div className="space-y-1.5">
@@ -1260,6 +1532,232 @@ export default function TenantDossierShow({
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Workflow Configuration & Reordering Modal */}
+            <Dialog open={configModalOpen} onOpenChange={setConfigModalOpen}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto font-tajawal">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                                <Sliders className="h-5 w-5 text-emerald-600" />
+                                <span>ضبط وتخصيص مراحل العمل التوثيقي (Workflow Customizer)</span>
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                                نوع الملف: {actTypeLabels[dossier.type] || dossier.type}
+                            </Badge>
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-6 text-xs font-tajawal">
+                        {/* Section 1: Choose Official Template */}
+                        <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-900 border space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                                    <Sparkles className="h-4 w-4 text-amber-500" />
+                                    <span>المسارات النموذجية المعتمدة طبقاً للقانون 16.03:</span>
+                                </div>
+                                <span className="text-[11px] text-stone-400">اختر نموذجاً لاستعادة خطواته الرسمية</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                {[
+                                    { key: 'family', label: 'عقود الأسرة والزواج', desc: '7 مراحل - قاضي الأسرة والحالة المدنية' },
+                                    { key: 'property', label: 'المعاملات العقارية', desc: '8 مراحل - DGI والمحافظة العقارية' },
+                                    { key: 'lafif', label: 'شهادة اللفيف (12)', desc: '7 مراحل - سماع الشهود والخطاب' },
+                                    { key: 'inheritance', label: 'التركات والفريضة', desc: '6 مراحل - الفريضة الشرعية والتضمين' },
+                                    { key: 'general', label: 'الوكالات والإشهادات', desc: '7 مراحل عامة' },
+                                ].map((t) => (
+                                    <div
+                                        key={t.key}
+                                        onClick={() => setSelectedTemplateKey(t.key)}
+                                        className={`p-2.5 rounded-xl border cursor-pointer transition-all text-center flex flex-col justify-between ${
+                                            selectedTemplateKey === t.key
+                                                ? 'bg-emerald-100 dark:bg-emerald-950/80 border-emerald-600 text-emerald-950 dark:text-emerald-200 font-bold shadow-xs'
+                                                : 'bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-800 hover:border-emerald-400'
+                                        }`}
+                                    >
+                                        <div className="text-xs">{t.label}</div>
+                                        <div className="text-[10px] text-stone-400 mt-1">{t.desc}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-end pt-1">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => applyOfficialTemplate(selectedTemplateKey)}
+                                    className="gap-1.5 text-xs rounded-xl font-bold border-emerald-600/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50"
+                                >
+                                    <RotateCcw className="h-3.5 w-3.5" />
+                                    <span>تطبيق مسار [{selectedTemplateKey}] النموذجي لهذا الملف</span>
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Section 2: Current Steps Reordering & Editing */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="font-bold text-stone-900 dark:text-stone-100">
+                                    قائمة المراحل الحالية للملف ({editableSteps.length} مرحلة):
+                                </div>
+                                <span className="text-[11px] text-stone-400">
+                                    استخدم أزرار الأسهم لتغيير الترتيب، أو قم بتعطيل/تعديل أي مرحلة
+                                </span>
+                            </div>
+
+                            <div className="space-y-2 max-h-[350px] overflow-y-auto pe-1">
+                                {editableSteps.map((st, idx) => (
+                                    <div
+                                        key={st.key || idx}
+                                        className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                                            st.is_enabled === false
+                                                ? 'bg-stone-100/50 dark:bg-stone-900/40 border-stone-200 dark:border-stone-800 opacity-50'
+                                                : 'bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-800 shadow-xs'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            <span className="w-6 h-6 rounded-lg bg-stone-100 dark:bg-stone-800 flex items-center justify-center font-mono font-bold text-xs shrink-0">
+                                                {idx + 1}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <input
+                                                    type="text"
+                                                    value={st.title_ar}
+                                                    onChange={(e) => {
+                                                        const copy = [...editableSteps];
+                                                        copy[idx].title_ar = e.target.value;
+                                                        setEditableSteps(copy);
+                                                    }}
+                                                    className="w-full bg-transparent font-bold text-xs focus:ring-1 focus:ring-emerald-500 rounded p-1 border-b border-transparent focus:border-stone-300"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={st.desc_ar || ''}
+                                                    onChange={(e) => {
+                                                        const copy = [...editableSteps];
+                                                        copy[idx].desc_ar = e.target.value;
+                                                        setEditableSteps(copy);
+                                                    }}
+                                                    placeholder="وصف الإجراء أو ملاحظات توجيهية..."
+                                                    className="w-full bg-transparent text-[11px] text-stone-500 focus:ring-1 focus:ring-emerald-500 rounded p-0.5 border-b border-transparent focus:border-stone-300"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                disabled={idx === 0}
+                                                onClick={() => moveStepUp(idx)}
+                                                className="p-1 h-7 w-7 text-stone-500 hover:text-emerald-700"
+                                                title="تحريك لأعلى"
+                                            >
+                                                <ArrowUp className="h-4 w-4" />
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                disabled={idx === editableSteps.length - 1}
+                                                onClick={() => moveStepDown(idx)}
+                                                className="p-1 h-7 w-7 text-stone-500 hover:text-emerald-700"
+                                                title="تحريك لأسفل"
+                                            >
+                                                <ArrowDown className="h-4 w-4" />
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => toggleStepEnabled(idx)}
+                                                className={`text-[10px] h-7 px-2 rounded-lg font-bold ${
+                                                    st.is_enabled === false
+                                                        ? 'bg-stone-200 text-stone-600'
+                                                        : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                                }`}
+                                            >
+                                                {st.is_enabled === false ? 'معطلة' : 'مفعلة'}
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => removeStepFromConfig(idx)}
+                                                className="p-1 h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                title="حذف المرحلة من المسار"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Section 3: Add New Custom Step */}
+                        <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 space-y-3">
+                            <div className="font-bold text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                                <Plus className="h-4 w-4" />
+                                <span>إضافة مرحلة جديدة مخصصة لهذا الملف</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div>
+                                    <Input
+                                        value={newStepTitle}
+                                        onChange={(e) => setNewStepTitle(e.target.value)}
+                                        placeholder="عنوان المرحلة (مثال: طلب رخصة الزواج للأجنبي / معاينة العقار)..."
+                                        className="h-8 text-xs bg-white dark:bg-stone-900"
+                                    />
+                                </div>
+                                <div>
+                                    <Input
+                                        value={newStepDesc}
+                                        onChange={(e) => setNewStepDesc(e.target.value)}
+                                        placeholder="وصف توجيهي مقتضب للمرحلة..."
+                                        className="h-8 text-xs bg-white dark:bg-stone-900"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="emerald"
+                                    onClick={addCustomStepToConfig}
+                                    disabled={!newStepTitle.trim()}
+                                    className="gap-1.5 text-xs rounded-xl font-bold h-8"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    <span>إضافة المرحلة إلى المسار</span>
+                                </Button>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="gap-2">
+                            <Button type="button" variant="outline" onClick={() => setConfigModalOpen(false)} className="rounded-xl">
+                                إلغاء
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="emerald"
+                                onClick={saveWorkflowConfiguration}
+                                className="rounded-xl font-bold shadow-xs"
+                            >
+                                حفظ واعتماد مسار المراحل
+                            </Button>
+                        </DialogFooter>
+                    </div>
                 </DialogContent>
             </Dialog>
 

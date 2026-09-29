@@ -56,6 +56,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/dossiers/{dossier}/documents', [DossierController::class, 'uploadDocument'])->name('dossiers.documents.upload');
     Route::delete('/dossiers/{dossier}/documents/{documentId}', [DossierController::class, 'deleteDocument'])->name('dossiers.documents.delete');
     Route::post('/dossiers/{dossier}/workflow-step', [DossierController::class, 'updateWorkflowStep'])->name('dossiers.workflow-step');
+    Route::post('/dossiers/{dossier}/configure-workflow', [DossierController::class, 'configureWorkflow'])->name('dossiers.configure-workflow');
+    Route::post('/dossiers/{dossier}/workflow-configure', [DossierController::class, 'configureWorkflow']);
+    Route::post('/dossiers/{dossier}/workflow-advance', [DossierController::class, 'quickAdvanceWorkflow'])->name('dossiers.workflow-advance');
     Route::get('/dossiers/{dossier}/print', [ExportController::class, 'printDossier'])->name('dossiers.print');
     Route::get('/dossiers/{dossier}/print-lafif', [ExportController::class, 'printLafif'])->name('dossiers.print-lafif');
     Route::get('/dossiers/{dossier}/fee-statement', [ExportController::class, 'feeStatement'])->name('dossiers.fee-statement');

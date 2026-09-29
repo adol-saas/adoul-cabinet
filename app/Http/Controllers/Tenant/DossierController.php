@@ -198,6 +198,7 @@ class DossierController extends Controller
             'template' => $template,
             'adoulUsers' => $adoulUsers,
             'verifyUrl' => $verifyUrl,
+            'workflowTemplates' => Dossier::getDefaultWorkflowTemplates(),
         ]);
     }
 
@@ -441,13 +442,14 @@ class DossierController extends Controller
     }
 
     /**
-     * Update procedural workflow step for tracking
+     * Update procedural workflow step for tracking (complete, reopen, or skip)
      */
     public function updateWorkflowStep(Request $request, Dossier $dossier): RedirectResponse
     {
         $validated = $request->validate([
-            'step_key' => ['required', 'string', 'in:intake,documents,drafting,signing,tax_dgi,court_qadi,delivery'],
+            'step_key' => ['required', 'string', 'max:100'],
             'is_completed' => ['required', 'boolean'],
+            'is_skipped' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'reference' => ['nullable', 'string', 'max:255'],
             'completed_at' => ['nullable', 'date'],
@@ -458,9 +460,11 @@ class DossierController extends Controller
 
         $stepKey = $validated['step_key'];
         $isCompleted = (bool) $validated['is_completed'];
+        $isSkipped = ! empty($validated['is_skipped']);
 
         $workflowSteps[$stepKey] = [
             'is_completed' => $isCompleted,
+            'is_skipped' => $isSkipped,
             'completed_at' => $isCompleted ? ($validated['completed_at'] ?? now()->toIso8601String()) : null,
             'completed_by' => auth()->user()->name ?? 'مستخدم المكتب',
             'notes' => $validated['notes'] ?? '',
@@ -470,33 +474,174 @@ class DossierController extends Controller
         $details['workflow_steps'] = $workflowSteps;
 
         $updates = ['details' => $details];
-        if ($stepKey === 'signing' && $isCompleted && ! $dossier->signing_date) {
+        if (str_contains($stepKey, 'signing') && $isCompleted && ! $dossier->signing_date) {
             $updates['signing_date'] = now();
             if ($dossier->status === 'draft') {
                 $updates['status'] = 'signed';
             }
-        } elseif ($stepKey === 'court_qadi' && $isCompleted) {
+        } elseif (str_contains($stepKey, 'qadi') && $isCompleted) {
             if (! empty($validated['reference'])) {
                 $updates['qadi_reference'] = $validated['reference'];
             }
             $updates['qadi_validation_date'] = now();
-        } elseif ($stepKey === 'tax_dgi' && $isCompleted && ! empty($validated['reference'])) {
+        } elseif (str_contains($stepKey, 'tax') && $isCompleted && ! empty($validated['reference'])) {
             $details['dgi_number'] = $validated['reference'];
             $details['dgi_date'] = now()->format('Y-m-d');
             $updates['details'] = $details;
-        } elseif ($stepKey === 'delivery' && $isCompleted) {
+        } elseif (str_contains($stepKey, 'delivery') && $isCompleted) {
             $updates['status'] = 'archived';
         }
 
         $dossier->update($updates);
 
+        $statusMsg = $isSkipped 
+            ? 'تم تحديد المرحلة كـ [معفاة / غير مطلوبة لهذا الملف]' 
+            : ($isCompleted ? 'مكتملة بنجاح ✓' : 'إعادة فتح المرحلة قيد المعالجة');
+
         $dossier->logAction('workflow_step_updated', auth()->id(), [
-            'note' => "تم تحديث مرحلة سير الإجراء: [{$stepKey}] " . ($isCompleted ? 'مكتملة ✓' : 'غير مكتملة'),
+            'note' => "تحديث مرحلة سير الإجراء [{$stepKey}]: {$statusMsg}",
             'step_key' => $stepKey,
             'is_completed' => $isCompleted,
+            'is_skipped' => $isSkipped,
             'reference' => $validated['reference'] ?? null,
         ]);
 
-        return back()->with('success', 'تم تحديث مرحلة سير الملف بنجاح.');
+        return back()->with('success', "تم تحديث المرحلة: {$statusMsg}");
+    }
+
+    /**
+     * Configure / Customize procedural workflow steps for this dossier or office
+     */
+    public function configureWorkflow(Request $request, Dossier $dossier): RedirectResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'string', 'in:save_steps,reset_template,add_step,delete_step,toggle_step'],
+            'steps' => ['nullable', 'array'],
+            'template_type' => ['nullable', 'string', 'in:family,property,lafif,inheritance,general'],
+            'template_key' => ['nullable', 'string', 'in:family,property,lafif,inheritance,general'],
+            'step_key' => ['nullable', 'string', 'max:100'],
+            'title_ar' => ['nullable', 'string', 'max:255'],
+            'title_fr' => ['nullable', 'string', 'max:255'],
+            'desc_ar' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $details = $dossier->details ?? [];
+        $action = $validated['action'];
+
+        if ($action === 'reset_template') {
+            $templateType = $validated['template_type'] ?? $validated['template_key'] ?? null;
+            $templates = Dossier::getDefaultWorkflowTemplates();
+            $newSteps = $templateType && isset($templates[$templateType]) 
+                ? $templates[$templateType] 
+                : Dossier::getDefaultWorkflowTemplates($dossier->type);
+
+            $details['custom_workflow_steps'] = $newSteps;
+            $details['workflow_template_key'] = $templateType;
+            $dossier->update(['details' => $details]);
+
+            $dossier->logAction('workflow_configured', auth()->id(), [
+                'note' => 'تمت إعادة ضبط مراحل العمل التوثيقي إلى المسار النموذجي المعتمد',
+            ]);
+
+            return back()->with('success', 'تمت إعادة ضبط مراحل العمل بنجاح وفق المسار النموذجي.');
+        }
+
+        if ($action === 'save_steps') {
+            $steps = $validated['steps'] ?? [];
+            $formattedSteps = [];
+            foreach ($steps as $idx => $st) {
+                if (empty($st['title_ar'])) {
+                    continue;
+                }
+                $formattedSteps[] = [
+                    'key' => ! empty($st['key']) ? $st['key'] : 'custom_step_' . ($idx + 1),
+                    'order' => $idx + 1,
+                    'title_ar' => $st['title_ar'],
+                    'title_fr' => $st['title_fr'] ?? '',
+                    'desc_ar' => $st['desc_ar'] ?? '',
+                    'icon' => $st['icon'] ?? 'CheckCircle',
+                    'is_enabled' => $st['is_enabled'] ?? true,
+                ];
+            }
+
+            $details['custom_workflow_steps'] = $formattedSteps;
+            $dossier->update(['details' => $details]);
+
+            $dossier->logAction('workflow_configured', auth()->id(), [
+                'note' => 'تم حفظ وتخصيص مراحل العمل التوثيقي لهذا الملف بنجاح',
+            ]);
+
+            return back()->with('success', 'تم حفظ وتخصيص مراحل المعاملة بنجاح.');
+        }
+
+        if ($action === 'add_step') {
+            $customSteps = $details['custom_workflow_steps'] ?? Dossier::getDefaultWorkflowTemplates($dossier->type);
+            $newKey = 'step_' . time();
+            $newOrder = count($customSteps) + 1;
+
+            $titleAr = ! empty($validated['title_ar']) ? $validated['title_ar'] : 'مرحلة إجرائية جديدة';
+            $titleFr = ! empty($validated['title_fr']) ? $validated['title_fr'] : 'Nouvelle Étape';
+            $descAr = ! empty($validated['desc_ar']) ? $validated['desc_ar'] : 'إجراء مخصص من قبل عدل المكتب';
+
+            $customSteps[] = [
+                'key' => $newKey,
+                'order' => $newOrder,
+                'title_ar' => $titleAr,
+                'title_fr' => $titleFr,
+                'desc_ar' => $descAr,
+                'icon' => 'Clock',
+                'is_enabled' => true,
+            ];
+
+            $details['custom_workflow_steps'] = array_values($customSteps);
+            $dossier->update(['details' => $details]);
+
+            return back()->with('success', "تمت إضافة مرحلة [{$titleAr}] بنجاح.");
+        }
+
+        if ($action === 'delete_step') {
+            $keyToDelete = $validated['step_key'] ?? '';
+            $customSteps = $details['custom_workflow_steps'] ?? Dossier::getDefaultWorkflowTemplates($dossier->type);
+
+            $filtered = array_values(array_filter($customSteps, fn ($s) => ($s['key'] ?? '') !== $keyToDelete));
+            foreach ($filtered as $i => &$s) {
+                $s['order'] = $i + 1;
+            }
+
+            $details['custom_workflow_steps'] = $filtered;
+            $dossier->update(['details' => $details]);
+
+            return back()->with('success', 'تم حذف المرحلة بنجاح من مسار الملف.');
+        }
+
+        return back();
+    }
+
+    /**
+     * 1-Click quick advance to complete the current active workflow step
+     */
+    public function quickAdvanceWorkflow(Request $request, Dossier $dossier): RedirectResponse
+    {
+        $workflow = $dossier->workflow_progress;
+        $currentKey = $workflow['current_step_key'] ?? null;
+
+        if (! $currentKey) {
+            return back()->with('info', 'جميع مراحل المعاملة مكتملة بالفعل.');
+        }
+
+        // Find step details
+        $currentStep = collect($workflow['steps'])->firstWhere('key', $currentKey);
+        $stepTitle = $currentStep['title_ar'] ?? $currentKey;
+
+        $request->merge([
+            'step_key' => $currentKey,
+            'is_completed' => true,
+            'completed_at' => now()->format('Y-m-d'),
+            'notes' => 'تم التأشير على إكمال المرحلة بنجاح عبر الإجراء السريع (1-Click Advance)',
+        ]);
+
+        $this->updateWorkflowStep($request, $dossier);
+
+        return back()->with('success', "تهانينا! تم إنجاز مرحلة [{$stepTitle}] والانتقال إلى المرحلة الموالية.");
     }
 }

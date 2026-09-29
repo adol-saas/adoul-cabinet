@@ -239,11 +239,15 @@ class CabinetWorkflowTest extends TestCase
 
     public function test_adoul_can_update_workflow_step(): void
     {
-        $dossier = Dossier::first();
+        $dossier = Dossier::where('type', 'property')->first() ?? Dossier::first();
+        $targetStepKey = collect($dossier->workflow_progress['steps'])->contains('key', 'tax_dgi')
+            ? 'tax_dgi'
+            : ($dossier->workflow_progress['steps'][1]['key'] ?? 'documents');
 
         $response = $this->actingAs($this->user)->post("/dossiers/{$dossier->id}/workflow-step", [
-            'step_key' => 'tax_dgi',
+            'step_key' => $targetStepKey,
             'is_completed' => true,
+            'is_skipped' => false,
             'reference' => 'DGI-QUITTANCE-889922',
             'completed_at' => '2026-09-29',
             'notes' => 'تم استخلاص واجبات التسجيل والتمبر بنجاح بالقباضة',
@@ -254,9 +258,48 @@ class CabinetWorkflowTest extends TestCase
         $dossier->refresh();
 
         $this->assertNotNull($dossier->workflow_progress);
-        $step = collect($dossier->workflow_progress['steps'])->firstWhere('key', 'tax_dgi');
+        $step = collect($dossier->workflow_progress['steps'])->firstWhere('key', $targetStepKey);
         $this->assertNotNull($step);
         $this->assertTrue($step['is_completed']);
         $this->assertEquals('DGI-QUITTANCE-889922', $step['reference']);
     }
+
+    public function test_adoul_can_configure_custom_workflow_steps(): void
+    {
+        $dossier = Dossier::first();
+
+        // 1. Reset to inheritance template
+        $response = $this->actingAs($this->user)->post("/dossiers/{$dossier->id}/workflow-configure", [
+            'action' => 'reset_template',
+            'template_key' => 'inheritance',
+        ]);
+        $response->assertSessionHasNoErrors();
+        $dossier->refresh();
+        $this->assertEquals('inheritance', $dossier->workflow_progress['template_key']);
+
+        // 2. Add custom step
+        $response = $this->actingAs($this->user)->post("/dossiers/{$dossier->id}/workflow-configure", [
+            'action' => 'add_step',
+            'title_ar' => 'مرحلة التحقق من وصية المورث',
+            'desc_ar' => 'التأكد من عدم وجود وصية واجبة أو اختيارية لدى كتابة الضبط',
+        ]);
+        $response->assertSessionHasNoErrors();
+        $dossier->refresh();
+        $this->assertTrue($dossier->workflow_progress['is_customized']);
+        $hasCustomStep = collect($dossier->workflow_progress['steps'])->contains(function ($s) {
+            return str_contains($s['title_ar'], 'وصية المورث');
+        });
+        $this->assertTrue($hasCustomStep);
+
+        // 3. Quick advance current step
+        $currentKey = $dossier->workflow_progress['current_step_key'];
+        $advanceResponse = $this->actingAs($this->user)->post("/dossiers/{$dossier->id}/workflow-advance", [
+            'notes' => 'تم الإنجاز بنجاح عبر الزر السريع',
+        ]);
+        $advanceResponse->assertSessionHasNoErrors();
+        $dossier->refresh();
+        $firstStep = collect($dossier->workflow_progress['steps'])->firstWhere('key', $currentKey);
+        $this->assertTrue($firstStep['is_completed']);
+    }
 }
+
