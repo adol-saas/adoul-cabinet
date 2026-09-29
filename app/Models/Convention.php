@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Stancl\Tenancy\Database\Concerns\CentralConnection;
 
 class Convention extends Model
 {
-    use CentralConnection;
     protected $fillable = [
         'title_ar',
         'title_fr',
