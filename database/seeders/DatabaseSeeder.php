@@ -84,7 +84,7 @@ class DatabaseSeeder extends Seeder
         $this->seedDocumentTemplates();
 
         // 3. Users & Staff
-        $adoulUser = User::firstOrCreate(
+        $adoulUser = User::updateOrCreate(
             ['email' => 'adoul@cabinet.ma'],
             [
                 'name' => 'الأستاذ د. محمد الإدريسي',
@@ -94,9 +94,21 @@ class DatabaseSeeder extends Seeder
                 'is_active' => true,
             ]
         );
-        $adoulUser->assignRole('owner');
+        $adoulUser->syncRoles(['owner']);
 
-        $secondAdoulUser = User::firstOrCreate(
+        $secretaireUser = User::updateOrCreate(
+            ['email' => 'secretaire@cabinet.ma'],
+            [
+                'name' => 'السيدة زينب التازي',
+                'password' => Hash::make('password'),
+                'phone' => '+212 663 333 444',
+                'job_title' => 'كتابة المكتب وسكرتارية التوثيق',
+                'is_active' => true,
+            ]
+        );
+        $secretaireUser->syncRoles(['katib']);
+
+        $secondAdoulUser = User::updateOrCreate(
             ['email' => 'adoul2@cabinet.ma'],
             [
                 'name' => 'الأستاذة ذة. فاطمة الزهراء بنجلون',
@@ -106,32 +118,24 @@ class DatabaseSeeder extends Seeder
                 'is_active' => true,
             ]
         );
-        $secondAdoulUser->assignRole('adoul');
-
-        $katibUser = User::firstOrCreate(
-            ['email' => 'katib@cabinet.ma'],
-            [
-                'name' => 'السيد رشيد الفاسي',
-                'password' => Hash::make('password'),
-                'phone' => '+212 663 333 444',
-                'job_title' => 'كاتب التوثيق وإدارة الملفات',
-                'is_active' => true,
-            ]
-        );
-        $katibUser->assignRole('katib');
+        $secondAdoulUser->syncRoles(['adoul']);
 
         // 4. Office Settings
         $cityName = 'الرباط';
         $cityFr = 'Rabat';
         $officeNameAr = 'مكتب الأستاذين د. محمد الإدريسي وفاطمة بنجلون - عدول محلفون';
         $officeNameFr = 'Cabinet Notarial Adoulaire - Maîtres M. Drissi & F. Benjelloun';
-        $qadiName = 'الأستاذ عبد السلام البوشيخي (قاضي التوثيق بالمحكمة الابتدائية)';
+        $qadiName = 'السيد قاضي التوثيق بالمحكمة الابتدائية بالرباط';
 
         OfficeSetting::updateOrCreate(
             ['id' => 1],
             [
                 'office_name_ar' => $officeNameAr,
                 'office_name_fr' => $officeNameFr,
+                'adoul_name' => 'الأستاذ د. محمد الإدريسي',
+                'second_adoul_name' => 'الأستاذة ذة. فاطمة الزهراء بنجلون',
+                'court_name' => 'المحكمة الابتدائية بالرباط - قسم قضاء الأسرة',
+                'license_number' => 'قرار وزاري رقم 2018/142',
                 'city' => $cityName,
                 'region' => 'جهة الرباط سلا القنيطرة',
                 'phone' => '+212 537 778 899',

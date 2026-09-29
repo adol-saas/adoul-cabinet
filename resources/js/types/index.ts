@@ -176,6 +176,10 @@ export interface OfficeSetting {
     id: number;
     office_name_ar: string;
     office_name_fr: string;
+    adoul_name?: string;
+    second_adoul_name?: string;
+    court_name?: string;
+    license_number?: string;
     city: string;
     region?: string;
     phone?: string;

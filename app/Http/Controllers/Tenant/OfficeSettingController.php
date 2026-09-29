@@ -36,6 +36,10 @@ class OfficeSettingController extends Controller
         $validated = $request->validate([
             'office_name_ar' => ['required', 'string', 'max:255'],
             'office_name_fr' => ['required', 'string', 'max:255'],
+            'adoul_name' => ['nullable', 'string', 'max:255'],
+            'second_adoul_name' => ['nullable', 'string', 'max:255'],
+            'court_name' => ['nullable', 'string', 'max:255'],
+            'license_number' => ['nullable', 'string', 'max:100'],
             'city' => ['required', 'string', 'max:100'],
             'region' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:30'],
@@ -76,6 +80,12 @@ class OfficeSettingController extends Controller
         unset($validated['logo'], $validated['stamp'], $validated['hero_image']);
 
         $setting->update($validated);
+
+        if (!empty($validated['adoul_name'])) {
+            \App\Models\User::where('email', 'adoul@cabinet.ma')->update([
+                'name' => $validated['adoul_name'],
+            ]);
+        }
 
         return back()->with('success', 'تم حفظ إعدادات المكتب وتخصيص البوابة بنجاح.');
     }

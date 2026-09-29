@@ -90,6 +90,10 @@ export default function TenantSettingsIndex({
     const form = useForm<{
         office_name_ar: string;
         office_name_fr: string;
+        adoul_name: string;
+        second_adoul_name: string;
+        court_name: string;
+        license_number: string;
         city: string;
         region: string;
         phone: string;
@@ -111,6 +115,10 @@ export default function TenantSettingsIndex({
     }>({
         office_name_ar: setting.office_name_ar || '',
         office_name_fr: setting.office_name_fr || '',
+        adoul_name: setting.adoul_name || '',
+        second_adoul_name: setting.second_adoul_name || '',
+        court_name: setting.court_name || 'المحكمة الابتدائية - قسم قضاء الأسرة',
+        license_number: setting.license_number || '',
         city: setting.city || 'الرباط',
         region: setting.region || 'المملكة المغربية',
         phone: setting.phone || '',
@@ -179,40 +187,41 @@ export default function TenantSettingsIndex({
                     )}
                 </div>
 
-                {/* Subscription Tier Overview */}
-                <Card className="border-2 border-amber-400/40 bg-gradient-to-br from-white to-amber-50/20 dark:from-stone-900 dark:to-amber-950/10 shadow-sm">
+                {/* Dedicated Cabinet System Overview */}
+                <Card className="border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-950/5 via-white to-amber-50/20 dark:from-stone-900 dark:via-stone-900 dark:to-emerald-950/20 shadow-sm">
                     <CardHeader className="pb-3">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
-                                <Badge variant="gold" className="text-[10px] mb-1 font-bold">باقة الاشتراك الحالية</Badge>
-                                <CardTitle className="text-lg font-bold font-tajawal text-stone-900 dark:text-stone-100">
-                                    {currentPlan?.name_ar || 'باقة المكتب'} ({currentPlan?.name_fr})
+                                <Badge variant="gold" className="text-[10px] mb-1 font-bold">النسخة الخاصة بالمكتب (Standalone Edition)</Badge>
+                                <CardTitle className="text-lg font-bold font-tajawal text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                                    <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                                    <span>نظام تدبير مكتب التوثيق العدلي — ترخيص مكتبي دائم</span>
                                 </CardTitle>
                             </div>
-                            <div className="text-sm font-extrabold font-tajawal text-amber-700 dark:text-amber-400">
-                                {currentPlan?.price_monthly || 0} MAD / شهر
+                            <div className="text-xs font-bold font-tajawal text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-3 py-1.5 rounded-full border border-emerald-300 dark:border-emerald-800">
+                                قاعدة بيانات خاصة ومستقلة 100%
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-3 text-xs">
                         <div className="grid sm:grid-cols-3 gap-3 p-3 rounded-lg bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700">
                             <div>
-                                <span className="text-stone-400 block mb-0.5">حالة الاشتراك:</span>
+                                <span className="text-stone-400 block mb-0.5">حالة النظام:</span>
                                 <span className="font-bold text-emerald-600 flex items-center gap-1">
                                     <CheckCircle2 className="h-3.5 w-3.5" />
-                                    نشط ومفعل
+                                    جاهز ومفعل لجميع الوحدات
                                 </span>
                             </div>
                             <div>
-                                <span className="text-stone-400 block mb-0.5">تاريخ التجديد القادم:</span>
-                                <span className="font-medium text-stone-700 dark:text-stone-300">
-                                    {subscription?.ends_at ? new Date(subscription.ends_at).toLocaleDateString('ar-MA') : 'تجديد سنوي تلقائي'}
-                                </span>
-                            </div>
-                            <div>
-                                <span className="text-stone-400 block mb-0.5">مزايا الباقة:</span>
+                                <span className="text-stone-400 block mb-0.5">المستخدمون المصرح لهم:</span>
                                 <span className="font-semibold text-stone-800 dark:text-stone-200">
-                                    {currentPlan?.max_users === 999 ? 'مستخدمون غير محدودين' : `${currentPlan?.max_users || 1} مستخدمين`}
+                                    الأستاذ العدل + كتابة المكتب (السكرتارية)
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-stone-400 block mb-0.5">الملفات والوثائق:</span>
+                                <span className="font-semibold text-stone-800 dark:text-stone-200">
+                                    غير محدودة (محلياً وسحابياً)
                                 </span>
                             </div>
                         </div>
@@ -224,18 +233,41 @@ export default function TenantSettingsIndex({
                     {/* Section 1: Official Identity */}
                     <Card>
                         <CardHeader className="pb-3 border-b border-stone-100 dark:border-stone-800">
-                            <CardTitle className="text-sm font-bold font-tajawal flex items-center gap-2">
+                            <CardTitle className="text-sm font-bold font-tajawal flex items-center gap-2 text-emerald-800 dark:text-emerald-400">
                                 <Building2 className="h-4 w-4 text-emerald-600" />
-                                <span>1. الهوية والترويسة الرسمية للمكتب (تظهر في الشهادات والمحررات)</span>
+                                <span>1. هوية السادة العدول وبيانات المكتب الرسمية (تظهر في الواجهة والشهادات والمحررات)</span>
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 space-y-4 text-xs">
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="font-bold text-stone-800 dark:text-stone-200">اسم الأستاذ(ة) العدل (صاحب المكتب / رئيس الهيئة) *</Label>
+                                    <Input
+                                        value={form.data.adoul_name}
+                                        onChange={(e) => form.setData('adoul_name', e.target.value)}
+                                        placeholder="مثال: الأستاذ د. محمد الإدريسي"
+                                    />
+                                    <p className="text-[10px] text-stone-400">يظهر كاسم المستخدم الرئيسي ويوقع به في محررات التوثيق</p>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="font-bold text-stone-800 dark:text-stone-200">اسم العدل الثاني الشريك (الشريك في التلقي)</Label>
+                                    <Input
+                                        value={form.data.second_adoul_name}
+                                        onChange={(e) => form.setData('second_adoul_name', e.target.value)}
+                                        placeholder="مثال: الأستاذة ذة. فاطمة الزهراء بنجلون"
+                                    />
+                                    <p className="text-[10px] text-stone-400">العدل الثاني المعتمد لإتمام ركن شهادة عدلين في التلقي الشرعي</p>
+                                </div>
+                            </div>
+
                             <div className="grid sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <Label>اسم المكتب بالعربية *</Label>
                                     <Input
                                         value={form.data.office_name_ar}
                                         onChange={(e) => form.setData('office_name_ar', e.target.value)}
+                                        placeholder="مكتب الأستاذين فلان وفلان - عدول محلفون"
                                         required
                                     />
                                     {form.errors.office_name_ar && <p className="text-red-500 text-[11px]">{form.errors.office_name_ar}</p>}
@@ -246,12 +278,34 @@ export default function TenantSettingsIndex({
                                     <Input
                                         value={form.data.office_name_fr}
                                         onChange={(e) => form.setData('office_name_fr', e.target.value)}
+                                        placeholder="Cabinet Notarial Adoulaire"
                                         required
                                     />
                                 </div>
                             </div>
 
                             <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label>المحكمة الابتدائية المختصة وقسم قضاء الأسرة *</Label>
+                                    <Input
+                                        value={form.data.court_name}
+                                        onChange={(e) => form.setData('court_name', e.target.value)}
+                                        placeholder="مثال: المحكمة الابتدائية بالرباط - قسم قضاء الأسرة"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label>صفة أو اسم قاضي التوثيق المشرف بالمحكمة المختصة *</Label>
+                                    <Input
+                                        value={form.data.qadi_name}
+                                        onChange={(e) => form.setData('qadi_name', e.target.value)}
+                                        placeholder="السيد قاضي التوثيق بالمحكمة الابتدائية"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid sm:grid-cols-3 gap-4">
                                 <div className="space-y-1.5">
                                     <Label>المدينة والدائرة القضائية *</Label>
                                     <Input
@@ -266,6 +320,15 @@ export default function TenantSettingsIndex({
                                     <Input
                                         value={form.data.region}
                                         onChange={(e) => form.setData('region', e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label>رقم بطاقة المهنة / قرار التعيين</Label>
+                                    <Input
+                                        value={form.data.license_number}
+                                        onChange={(e) => form.setData('license_number', e.target.value)}
+                                        placeholder="مثال: قرار وزاري عدد 2018/142"
                                     />
                                 </div>
                             </div>
@@ -311,16 +374,6 @@ export default function TenantSettingsIndex({
                                     value={form.data.address}
                                     onChange={(e) => form.setData('address', e.target.value)}
                                     placeholder="العنوان الكامل كما يظهر في خاتم وترويسة المحررات"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label>صفة أو اسم قاضي التوثيق المشرف بالمحكمة المختصة *</Label>
-                                <Input
-                                    value={form.data.qadi_name}
-                                    onChange={(e) => form.setData('qadi_name', e.target.value)}
-                                    placeholder="السيد قاضي التوثيق بالمحكمة الابتدائية"
-                                    required
                                 />
                             </div>
                         </CardContent>
